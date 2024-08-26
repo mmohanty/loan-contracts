@@ -1,5 +1,4 @@
 # Identity Smart Contract
-[demo](https://www.youtube.com/watch?v=7M1xSdt7bNE)
 
 ## Overview
 
@@ -68,50 +67,53 @@ A minimalistic web interface was developed to test the smart contract API. You c
 https://docs.injective.network/cosmwasm-dapps/01_Cosmwasm_CW20_deployment_guide_Local.html
 
 
+ # Strat injective
 ./setup.sh && injectived start
 
 
-# inside the CosmWasm/cw-plus repo 
-yes 12345678 | injectived tx wasm store target/wasm32-unknown-unknown/release/identity.wasm --from=genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000
+# inside the root folder
+`yes 12345678 | injectived tx wasm store target/wasm32-unknown-unknown/release/identity.wasm --from=genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000`
 
 
+# Initialize Smart contract
+
+`INIT='{}'`
+`yes 12345678 | injectived tx wasm instantiate 1 $INIT --label="DecentralizedIdentity" --from=genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000 --no-admin`
 
 
-INIT='{}'
-yes 12345678 | injectived tx wasm instantiate 1 $INIT --label="DecentralizedIdentity" --from=genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000 --no-admin
+# Query Code Id
 
+`injectived query tx Your_txhash`
 
-
-
-
-injectived query tx Your_txhash
----
+Sample Response will have information like:
+`
  key: code_id
     value: '"1"'
-------
 
-the address of the instantiated contract can be obtained on http://localhost:10337/swagger/#/Query/ContractsByCode
+`
 
+# get contract address
+address of the instantiated contract can be obtained on http://localhost:10337/swagger/#/Query/ContractsByCode
 
+Sample Response will have information like:
 "contracts": [
     "inj14hj2tavq8fpesdwxxcu44rty3hh90vhujaxlnz"
   ]
 
  -----
 
-
+# Get contract info meta
 
  the contract info meta data can be obtained on http://localhost:10337/swagger/#/Query/ContractInfo (opens new window)
 
-
  or by CLI query
 
-CODE_ID=1
-CONTRACT=$(injectived query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')
-injectived query wasm contract $CONTRACT
+`CODE_ID=1`
+`CONTRACT=$(injectived query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')`
+`injectived query wasm contract $CONTRACT`
 
 
-injectived query tx Your_txhash
+`injectived query tx Your_txhash`
 
 --
  key: contract_address
@@ -120,39 +122,35 @@ injectived query tx Your_txhash
 
 
 
--- Query Data
+# Query Examples
 
 
-BALANCE_QUERY='{"balance": {"address": "inj10cfy5e6qt2zy55q2w2ux2vuq862zcyf4fmfpj3"}}'
-injectived query wasm contract-state smart $CONTRACT "$BALANCE_QUERY" --output json
+`BALANCE_QUERY='{"balance": {"address": "inj10cfy5e6qt2zy55q2w2ux2vuq862zcyf4fmfpj3"}}'`
+`injectived query wasm contract-state smart $CONTRACT "$BALANCE_QUERY" --output json`
 
 
-IDENTITY_ALL_QUERY='{"user_info_all":{}}'
-injectived query wasm contract-state smart $CONTRACT "$IDENTITY_ALL_QUERY" --output json
+`IDENTITY_ALL_QUERY='{"user_info_all":{}}'`
+`injectived query wasm contract-state smart $CONTRACT "$IDENTITY_ALL_QUERY" --output json`
 
 
-LOAN_ALL_QUERY='{"loan_data_all": {}}'
-injectived query wasm contract-state smart $CONTRACT "$LOAN_ALL_QUERY" --output json
+`LOAN_ALL_QUERY='{"loan_data_all": {}}'`
+injectived query wasm contract-state smart $CONTRACT "$LOAN_ALL_QUERY" --output json`
 
 
--- Execute command
+# Execute commands
 
 
-LOAN_JSON='{"update_loandata":{"loan_data":{"loan_number":"123","loan_amount":"10000","interest_rate":"10","loan_duration":"10","loan_type":"AUTO","loan_status":"ACTIVE","loan_owner":"MANAS"}}}'
+`LOAN_JSON='{"update_loandata":{"loan_data":{"loan_number":"123","loan_amount":"10000","interest_rate":"10","loan_duration":"10","loan_type":"AUTO","loan_status":"ACTIVE","loan_owner":"MANAS"}}}'`
 
-yes 12345678 | injectived tx wasm execute $CONTRACT "$LOAN_JSON" --from genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000
+`yes 12345678 | injectived tx wasm execute $CONTRACT "$LOAN_JSON" --from genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000`
 
 
 
 
 --
+`IDENTITY_JSON='{"update_metadata": {"identity_data": {"name": "Alice Updated", "pic": "ipfs://newpic", "address": "cosmos1...", "about": "Updated About Alice", "avatar": "ipfs://newavatar" } } }'`
 
-IDENTITY_JSON='{"update_metadata": {"identity_data": {"name": "Alice Updated", "pic": "ipfs://newpic", "address": "cosmos1...", "about": "Updated About Alice", "avatar": "ipfs://newavatar" } } }'
-
-yes 12345678 | injectived tx wasm execute $CONTRACT "$IDENTITY_JSON" --from genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000
-
-
-
+`yes 12345678 | injectived tx wasm execute $CONTRACT "$IDENTITY_JSON" --from genesis --chain-id="injective-1" --yes --fees=1000000000000000inj --gas=2000000`
 
 
 
