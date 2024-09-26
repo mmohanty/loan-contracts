@@ -20,13 +20,12 @@ pub struct IdentityMetadata {
 // Loan data structure with review status
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LoanData {
-    pub amount: u128,
-    pub borrower: String,
-    pub interest_rate: String,
-    pub duration: u64, // in months
+    pub loan_id: String, // Unique loan ID for each loan
+    pub template_id: String, // The template used for this loan
+    pub values: HashMap<String, String>, // Field values (stored as strings to handle multiple data types)
     pub review_status: ReviewStatus, // Track the review status of each loan
-    pub creation_date: u64,          // Unix timestamp when the loan was created
-    pub approval_date: Option<u64>,  // Unix timestamp when the loan was approved
+    pub creation_date: u64, // Unix timestamp when the loan was created
+    pub approval_date: Option<u64>, // Unix timestamp when the loan was approved
     pub rejection_date: Option<u64>, // Unix timestamp when the loan was rejected
 }
 
@@ -37,6 +36,12 @@ pub enum ReviewStatus {
     Approved,
     Reviewed,
     Rejected,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LoanRequest {
+    pub template_id: String, // ID of the loan template
+    pub values: HashMap<String, String>, // Field values for the loan
 }
 
 
@@ -67,4 +72,43 @@ pub struct AllReviewerStatistics {
     pub total_approved: u64,
     pub total_rejected: u64,
     pub reviewers_stats: Vec<LoanStatistics>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub enum FieldType {
+    String {
+        is_editable: bool,
+        format: Option<String>,
+        min_value: Option<String>, // Minimum allowed value (optional)
+        max_value: Option<String>, // Regex or specific format (optional)
+    },
+    Number {
+        is_editable: bool,
+        min_value: Option<String>, // Minimum allowed value (optional)
+        max_value: Option<String>, // Maximum allowed value (optional)
+    },
+    Boolean {
+        is_editable: bool,
+    },
+    Date {
+        is_editable: bool,
+        format: Option<String>,
+        min_value: Option<String>, // Minimum allowed value (optional)
+        max_value: Option<String>, // Format (optional) or expected timestamp
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct LoanTemplate {
+    pub id: String, // Unique ID for the template
+    pub name: String, // Name of the template (e.g., "Home Loan", "Car Loan")
+    pub fields: HashMap<String, FieldType>, // Field names with their types and constraints
+    pub submitter: String, // The user who created the template
+    pub reviewer: Option<String>, // The reviewer assigned to review this template
+    pub review_status: ReviewStatus, // Review status (Pending, Approved, Rejected)
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct ReviewTuple{
+    pub reviewer: String,
+    pub creater: String,
 }

@@ -28,6 +28,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         },
         QueryMsg::GetAllReviewerStatistics {} => {
             to_json_binary(&query::query_all_reviewer_statistics(deps, _env)?)
+        },
+        QueryMsg::GetUserTemplates {
+            user_id,
+        } => {
+            to_json_binary(&query::query_user_templates(deps, user_id)?)
+        },
+        QueryMsg::GetReviewerTemplates {
+            reviewer,
+        } => {
+            to_json_binary(&query::query_templates_for_reviewer(deps, reviewer)?)
         }
     }
 }
@@ -38,7 +48,7 @@ mod query {
     use cosmwasm_std::{Addr, Deps, Env, StdResult};
 
     use crate::{
-        models::{AllReviewerStatistics, IdentityMetadata, LoanData, LoanStatistics, ReviewStatus}, states::{IDENTITIES, LOAN_STORAGE, REVIEWER_ASSIGNMENTS}
+        models::{AllReviewerStatistics, IdentityMetadata, LoanData, LoanStatistics, LoanTemplate, ReviewStatus}, states::{IDENTITIES, LOAN_STORAGE, REVIEWER_ASSIGNMENTS, TEMPLATE_REVIEWERS, USER_TEMPLATES}
     };
 
     pub fn query_loan(deps: Deps, user_id: String, loan_id: String) -> StdResult<LoanData> {
@@ -139,8 +149,7 @@ mod query {
         env: Env,
         reviewer: Option<String>,
     ) -> StdResult<LoanStatistics> {
-        let reviewer_addr = deps.api.addr_validate(&reviewer.unwrap_or_default())?;
-    
+        let reviewer_addr = deps.api.addr_validate(&reviewer.unwrap_or_default().as_str())?;
         let loan_statistics = prepapre_loan_statistics(env.clone(), deps, reviewer_addr)?;
         Ok(loan_statistics)
     }
@@ -251,5 +260,40 @@ mod query {
             total_rejected,
             reviewers_stats,
         })
+    }
+
+    pub fn query_templates_for_reviewer(deps: Deps, reviewer: String) -> StdResult<Vec<LoanTemplate>> {
+        let templates: Vec<LoanTemplate> = TEMPLATE_REVIEWERS
+            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+            .filter_map(|item| {
+                let (template_id, assigned_reviewer_tuple) = item.ok()?;
+                if assigned_reviewer_tuple.reviewer == reviewer {
+                    // Now query USER_TEMPLATES for the specific template
+                    let template = USER_TEMPLATES
+                        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+                        .find_map(|template_item| {
+                            let (_, template) = template_item.ok()?;
+                            if template.id == template_id {
+                                Some(template)
+                            } else {
+                                None
+                            }
+                        });
+                    template
+                } else {
+                    None
+                }
+            })
+            .collect(); // Collect LoanTemplate items into a Vec
+    
+        Ok(templates) // Return the vector of LoanTemplates
+    }
+
+    pub fn query_user_templates(deps: Deps, user_id: String) -> StdResult<Vec<LoanTemplate>> {
+        USER_TEMPLATES
+            .prefix(&user_id)
+            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+            .map(|item| item.map(|(_, template)| template))
+            .collect()
     }
 }
