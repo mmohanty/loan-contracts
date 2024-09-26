@@ -14,4 +14,7 @@ pub enum ContractError {
 
     #[error("Identity not found. Create new identity before modify.")]
     IdentityNotFound {},
+
+    #[error("Loan not found")]
+    LoanNotFound {},
 }

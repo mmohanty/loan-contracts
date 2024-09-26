@@ -6,4 +6,10 @@ use crate::models::{IdentityMetadata, LoanData};
 pub const IDENTITIES: Map<&Addr, IdentityMetadata> = Map::new("identities");
 
 
-pub const LOAN_DATA:  Map<&str, LoanData> = Map::new("loan_data");
+// Map to store loan data with (user_id, loan_id) as composite key
+pub const LOAN_STORAGE: Map<(&str, &str), LoanData> = Map::new("loans");
+
+
+// Map to store assignments of loans to reviewers
+pub const REVIEWER_ASSIGNMENTS: Map<&Addr, Vec<(String, String)>> = Map::new("assignments");
+
