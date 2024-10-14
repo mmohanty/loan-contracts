@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LoanData",
+  "type": "object",
+  "required": [
+    "creation_date",
+    "loan_id",
+    "review_status",
+    "template_id",
+    "values"
+  ],
+  "properties": {
+    "approval_date": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "creation_date": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "loan_id": {
+      "type": "string"
+    },
+    "rejection_date": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "review_status": {
+      "$ref": "#/definitions/ReviewStatus"
+    },
+    "template_id": {
+      "type": "string"
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "ReviewStatus": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Approved",
+        "Reviewed",
+        "Rejected"
+      ]
+    }
+  }
+}

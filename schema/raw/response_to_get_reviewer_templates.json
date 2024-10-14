@@ -1,0 +1,190 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Array_of_LoanTemplate",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/LoanTemplate"
+  },
+  "definitions": {
+    "FieldType": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "String"
+          ],
+          "properties": {
+            "String": {
+              "type": "object",
+              "required": [
+                "is_editable"
+              ],
+              "properties": {
+                "format": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_editable": {
+                  "type": "boolean"
+                },
+                "max_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "min_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Number"
+          ],
+          "properties": {
+            "Number": {
+              "type": "object",
+              "required": [
+                "is_editable"
+              ],
+              "properties": {
+                "is_editable": {
+                  "type": "boolean"
+                },
+                "max_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "min_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Boolean"
+          ],
+          "properties": {
+            "Boolean": {
+              "type": "object",
+              "required": [
+                "is_editable"
+              ],
+              "properties": {
+                "is_editable": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Date"
+          ],
+          "properties": {
+            "Date": {
+              "type": "object",
+              "required": [
+                "is_editable"
+              ],
+              "properties": {
+                "format": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_editable": {
+                  "type": "boolean"
+                },
+                "max_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "min_value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "LoanTemplate": {
+      "type": "object",
+      "required": [
+        "fields",
+        "id",
+        "name",
+        "review_status",
+        "submitter"
+      ],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "review_status": {
+          "$ref": "#/definitions/ReviewStatus"
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "submitter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ReviewStatus": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Approved",
+        "Reviewed",
+        "Rejected"
+      ]
+    }
+  }
+}

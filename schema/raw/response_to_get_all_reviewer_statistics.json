@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AllReviewerStatistics",
+  "type": "object",
+  "required": [
+    "reviewers_stats",
+    "total_approved",
+    "total_pending",
+    "total_rejected"
+  ],
+  "properties": {
+    "reviewers_stats": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LoanStatistics"
+      }
+    },
+    "total_approved": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "total_pending": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "total_rejected": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "LoanStatistics": {
+      "type": "object",
+      "required": [
+        "approved_last_month",
+        "approved_this_month",
+        "month_wise_status_count",
+        "pending_count",
+        "rejected_last_month",
+        "rejected_this_month"
+      ],
+      "properties": {
+        "approved_last_month": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "approved_this_month": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "average_time_to_process": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "month_wise_status_count": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "pending_count": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "rejected_last_month": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "rejected_this_month": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
