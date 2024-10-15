@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use crate::models::{
-    AllReviewerStatistics, FieldType, IdentityMetadata, LoanData, LoanRequest, LoanStatistics, LoanTemplate, ReviewStatus
-};
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Addr;
+use cosmwasm_schema::QueryResponses;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::models::{ Loan, LoanAttribute, LoanDateQueryFilters, LoanStatistics, MetaData, Template};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum InstantiateMsg {}
@@ -14,65 +12,46 @@ pub enum InstantiateMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    UpdateMetadata {
-        identity_data: IdentityMetadata,
+
+    CreateTemplate {
+        id: String,
+        name: String,
+        loan_creators: Vec<String>,
+        loan_reviewers: Vec<String>,
+        fields: HashMap<String, MetaData>,
+    },
+    SubmitTemplate { id: String, },
+    ApproveTemplate {
+        id: String,
+        as_creator: bool,
+
     },
     CreateLoan {
-        user_id: String,
-        loan_requests: Vec<LoanRequest>,
-    },
-    AssignLoansToReviewer {
-        reviewer: String,
-        loans: Vec<(String, String)>,
-    },
-    UpdateLoanReviewStatus {
-        user_id: String,
-        loan_id: String,
-        new_status: ReviewStatus,
-    },
-    CreateLoanTemplate {
+        id: String,
         template_id: String,
-        name: String,
-        fields: HashMap<String, FieldType>,
+        attributes: HashMap<String, LoanAttribute>,
     },
-    SubmitTemplateForReview {
-        template_id: String,
-        reviewer: String,
-    },
-    ReviewTemplate {
-        template_id: String,
-        approve: bool,
-    },
+    SubmitLoan { loan_id: String },
+    ReviewLoan { loan_id: String, approve: bool, return_loan: bool, comments: Option<String> },
+
+    
 }
 
-#[cw_serde]
-#[derive(QueryResponses)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, QueryResponses)]
 pub enum QueryMsg {
-    #[returns(IdentityMetadata)]
-    UserInfo { address: Addr },
-    #[returns(Vec<(Addr, IdentityMetadata)>)]
-    UserInfoAll {},
-    #[returns(Vec<LoanData>)]
-    GetLoansForUser { user_id: String },
-    #[returns(LoanData)]
-    GetLoanDetails { user_id: String, loan_id: String },
-    #[returns(Vec<LoanData>)]
-    GetLoansForReviewer { reviewer: String },
-    #[returns(Vec<LoanData>)]
-    GetLoansByStatus { status: ReviewStatus },
-    #[returns(Vec<LoanData>)]
-    GetLoansByDate {
-        from_date: u64,    // Unix timestamp for filtering loans
-        date_type: String, // "created", "approved", or "rejected"
-    },
+
+    // #[returns(Loan)]
+    // QueryLoan { id: String },
+    // #[returns(Vec<Loan>)]
+    // QueryLoansForUser { user: String },
+    // #[returns(Vec<Loan>)]
+    // QueryLoansByStatus { status: LoanStatus },
+    #[returns(Vec<Loan>)]
+    QueryLoans { filters: LoanDateQueryFilters },
     #[returns(LoanStatistics)]
-    GetLoanStatistics { reviewer: Option<String> },
-    #[returns(AllReviewerStatistics)]
-    GetAllReviewerStatistics {},
-
-    #[returns(Vec<LoanTemplate>)]
-    GetUserTemplates { user_id: String },
-
-    #[returns(Vec<LoanTemplate>)]
-    GetReviewerTemplates { reviewer: String },
+    QueryLoanStatistics {},
+    #[returns(Vec<Template>)]
+    QueryTemplatesForReviewer { reviewer: String },
+    #[returns(Vec<Template>)]
+    QueryUserTemplates { creator: String },   
 }

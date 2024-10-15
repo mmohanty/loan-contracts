@@ -1,299 +1,161 @@
-use cosmwasm_std::{entry_point, to_json_binary, Binary, Deps, Env, StdResult};
+use cosmwasm_std::{entry_point, Binary, Deps, Env, StdResult};
+use query::{query_loan_statistics, query_loans, query_templates_for_reviewer, query_user_templates};
 
 use crate::msg::QueryMsg;
 
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::UserInfo { address } => to_json_binary(&query::query_identity(deps, address)?),
-        QueryMsg::UserInfoAll {} => to_json_binary(&query::query_all_identities(deps)?),
-        QueryMsg::GetLoansByStatus { status } => {
-            to_json_binary(&query::query_loans_by_status(deps, status)?)
-        }
-        QueryMsg::GetLoansForUser { user_id } => {
-            to_json_binary(&query::query_loans_for_user(deps, user_id)?)
-        }
-        QueryMsg::GetLoanDetails { user_id, loan_id } => {
-            to_json_binary(&query::query_loan(deps, user_id, loan_id)?)
-        }
-        QueryMsg::GetLoansForReviewer { reviewer } => {
-            to_json_binary(&query::query_loans_for_reviewer(deps, reviewer)?)
-        }
-        QueryMsg::GetLoansByDate {
-            from_date,
-            date_type,
-        } => to_json_binary(&query::query_loans_by_date(deps, from_date, date_type)?),
-        QueryMsg::GetLoanStatistics { reviewer } => {
-            to_json_binary(&query::query_loan_statistics(deps, _env, reviewer)?)
-        },
-        QueryMsg::GetAllReviewerStatistics {} => {
-            to_json_binary(&query::query_all_reviewer_statistics(deps, _env)?)
-        },
-        QueryMsg::GetUserTemplates {
-            user_id,
-        } => {
-            to_json_binary(&query::query_user_templates(deps, user_id)?)
-        },
-        QueryMsg::GetReviewerTemplates {
-            reviewer,
-        } => {
-            to_json_binary(&query::query_templates_for_reviewer(deps, reviewer)?)
-        }
+        //QueryMsg::QueryLoan { id } => query_loan(deps, id),
+        //QueryMsg::QueryLoansForUser { user } => query_loans_for_user(deps, user),
+        //QueryMsg::QueryLoansByStatus { status } => query_loans_by_status(deps, status),
+        QueryMsg::QueryLoans {filters } => query_loans(deps, filters),
+        QueryMsg::QueryLoanStatistics {} => query_loan_statistics(deps),
+        QueryMsg::QueryTemplatesForReviewer { reviewer } => query_templates_for_reviewer(deps, reviewer),
+        QueryMsg::QueryUserTemplates { creator } => query_user_templates(deps, creator),
     }
 }
 
 mod query {
-    use std::collections::HashMap;
 
-    use cosmwasm_std::{Addr, Deps, Env, StdResult};
+    use cosmwasm_std::{to_json_binary, Binary, Deps,  Order, StdResult};
 
-    use crate::{
-        models::{AllReviewerStatistics, IdentityMetadata, LoanData, LoanStatistics, LoanTemplate, ReviewStatus}, states::{IDENTITIES, LOAN_STORAGE, REVIEWER_ASSIGNMENTS, TEMPLATE_REVIEWERS, USER_TEMPLATES}
-    };
+    use crate::{models::{Loan, LoanDateQueryFilters, LoanStatistics, LoanStatus, Template}, states::{LOAN_STORE, TEMPLATE_STORE}};
 
-    pub fn query_loan(deps: Deps, user_id: String, loan_id: String) -> StdResult<LoanData> {
-        let loan = LOAN_STORAGE
-            .load(deps.storage, (&user_id, &loan_id));
-        Ok(loan?)
-    }
-    pub fn query_identity(deps: Deps, address: Addr) -> StdResult<IdentityMetadata> {
-        let identity = IDENTITIES.load(deps.storage, &address)?;
-        Ok(identity)
-    }
-
-    pub fn query_all_identities(deps: Deps) -> StdResult<Vec<(Addr, IdentityMetadata)>> {
-        let identities: StdResult<Vec<_>> = IDENTITIES
-            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .collect();
-        identities
-    }
-
-    // Function to query loan data by (user_id)
-    pub fn query_loans_for_user(deps: Deps, user_id: String) -> StdResult<Vec<LoanData>> {
-        // Use range to iterate over all the loans in storage
-        let loans: Vec<LoanData> = LOAN_STORAGE
-            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending) // Iterate over the storage
-            .filter_map(|item| {
-                let ((stored_user_id, _loan_id), loan_data) = item.ok()?; // Extract the user_id and loan_id
-                if stored_user_id == user_id {
-                    Some(loan_data) // Keep only loans for the provided user_id
-                } else {
-                    None // Filter out loans that don't match the user_id
-                }
-            })
-            .collect(); // Collect all the loans into a Vec<LoanData>
-
-        Ok(loans)
-    }
-
-    // Function to query loans by their review status
-    pub fn query_loans_by_status(
-        deps: Deps,
-        status: ReviewStatus,
-    ) -> StdResult<Vec<(String, String)>> {
-        let loans: Vec<(String, String)> = LOAN_STORAGE
-            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .filter_map(|item| {
-                let ((user_id, loan_id), loan) = item.ok()?;
-                if loan.review_status == status {
-                    Some((user_id.to_string(), loan_id.to_string()))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        Ok(loans)
-    }
-
-    // Function to query loans assigned to a reviewer
-    pub fn query_loans_for_reviewer(
-        deps: Deps,
-        reviewer: String,
-    ) -> StdResult<Vec<(String, String)>> {
-        let reviewer_addr = deps.api.addr_validate(&reviewer)?;
-        let loans = REVIEWER_ASSIGNMENTS.load(deps.storage, &reviewer_addr)?;
-        Ok(loans)
-    }
-
-    // Function to query loans by their creation, approval, or rejection date
-    pub fn query_loans_by_date(
-        deps: Deps,
-        from_date: u64,
-        date_type: String,
-    ) -> StdResult<Vec<(String, String)>> {
-        let loans: Vec<(String, String)> = LOAN_STORAGE
-            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .filter_map(|item| {
-                let ((user_id, loan_id), loan) = item.ok()?;
-                match date_type.as_str() {
-                    "created" if loan.creation_date >= from_date => {
-                        Some((user_id.to_string(), loan_id.to_string()))
-                    }
-                    "approved" if loan.approval_date.unwrap_or(0) >= from_date => {
-                        Some((user_id.to_string(), loan_id.to_string()))
-                    }
-                    "rejected" if loan.rejection_date.unwrap_or(0) >= from_date => {
-                        Some((user_id.to_string(), loan_id.to_string()))
-                    }
-                    _ => None,
-                }
-            })
-            .collect();
-
-        Ok(loans)
-    }
-
-    pub fn query_loan_statistics(
-        deps: Deps,
-        env: Env,
-        reviewer: Option<String>,
-    ) -> StdResult<LoanStatistics> {
-        let reviewer_addr = deps.api.addr_validate(&reviewer.unwrap_or_default().as_str())?;
-        let loan_statistics = prepapre_loan_statistics(env.clone(), deps, reviewer_addr)?;
-        Ok(loan_statistics)
-    }
-
-    fn prepapre_loan_statistics(env: Env, deps: Deps<'_>, reviewer_addr: Addr) -> Result<LoanStatistics, cosmwasm_std::StdError> {
-        let current_timestamp = env.block.time.seconds();
-        let month_seconds = 30 * 24 * 60 * 60;
-        let current_month_start = current_timestamp - (current_timestamp % month_seconds);
-        let last_month_start = current_month_start - month_seconds;
-        let mut pending_count = 0;
-        let mut rejected_this_month = 0;
-        let mut rejected_last_month = 0;
-        let mut approved_this_month = 0;
-        let mut approved_last_month = 0;
-        let mut total_processing_time: u64 = 0;
-        let mut processed_loans_count = 0;
-        let mut month_wise_status_count: HashMap<String, HashMap<String, u64>> = HashMap::new();
-        if let Some(assigned_loans) = REVIEWER_ASSIGNMENTS.may_load(deps.storage, &reviewer_addr)? {
-            for (user_id, loan_id) in assigned_loans {
-                if let Some(loan) = LOAN_STORAGE.may_load(deps.storage, (&user_id, &loan_id))? {
-                    // Count pending loans
-                    if loan.review_status == ReviewStatus::Pending {
-                        pending_count += 1;
-                    }
+    // pub fn query_loan(deps: Deps, id: String) -> StdResult<Binary> {
+    //     let loan = LOAN_STORE.load(deps.storage, id.clone())?;
+    //     to_json_binary(&loan)
+    // }
     
-                    // Process approval or rejection stats based on date
-                    if let Some(approval_date) = loan.approval_date {
-                        if approval_date >= current_month_start {
-                            approved_this_month += 1;
-                        } else if approval_date >= last_month_start {
-                            approved_last_month += 1;
-                        }
-                        total_processing_time += approval_date - loan.creation_date;
-                        processed_loans_count += 1;
-                    }
+    // pub fn query_loans_for_user(deps: Deps, user: String) -> StdResult<Binary> {
+    //     let loans: Vec<Loan> = LOAN_STORE
+    //         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+    //         .filter_map(|item| item.ok()) // Extract only valid loans
+    //         .filter(|(_, loan)| loan.creator == user) // Filter by creator
+    //         .map(|(_, loan)| loan) // Return only the loan data
+    //         .collect();
     
-                    if let Some(rejection_date) = loan.rejection_date {
-                        if rejection_date >= current_month_start {
-                            rejected_this_month += 1;
-                        } else if rejection_date >= last_month_start {
-                            rejected_last_month += 1;
-                        }
-                        total_processing_time += rejection_date - loan.creation_date;
-                        processed_loans_count += 1;
-                    }
-    
-                    // Month-wise count of loans by status
-                    let loan_creation_month = format!("{}", loan.creation_date / month_seconds);
-                    let status_count = month_wise_status_count
-                        .entry(loan_creation_month)
-                        .or_insert_with(HashMap::new);
-                    *status_count.entry(loan.review_status.clone().to_string()).or_insert(0) += 1;
-                }
-            }
-        }
-        let average_time_to_process_float = if processed_loans_count > 0 {
-            Some(total_processing_time as f64 / processed_loans_count as f64)
-        } else {
-            None
-        };
-        let average_time_to_process = average_time_to_process_float.map(|e: f64| e.to_string());
-        let loan_statistics = LoanStatistics {
-            reviewer: None,
-            pending_count,
-            rejected_this_month,
-            rejected_last_month,
-            approved_this_month,
-            approved_last_month,
-            average_time_to_process,
-            month_wise_status_count,
-        };
-        Ok(loan_statistics)
-    }
-    
-    pub fn query_all_reviewer_statistics(
-        deps: Deps,
-        env: Env,
-    ) -> StdResult<AllReviewerStatistics> {
-    
-        let mut total_pending = 0;
-        let mut total_approved = 0;
-        let mut total_rejected = 0;
-        let mut reviewers_stats: Vec<LoanStatistics> = vec![];
-    
-        // Iterate over all reviewers
-        let all_reviewers: Vec<Addr> = REVIEWER_ASSIGNMENTS
-            .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .map(|result| result.unwrap())
-            .collect();
-    
-        // Process each reviewer
-        for reviewer_addr in all_reviewers {
+    //         to_json_binary(&loans)
+    // }
 
-            let loan_statistics = prepapre_loan_statistics(env.clone(), deps, reviewer_addr)?;
+    // pub fn query_loans_by_status(deps: Deps, status: LoanStatus) -> StdResult<Binary> {
+    //     let loans: Vec<Loan> = LOAN_STORE
+    //         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+    //         .filter_map(|item| item.ok())
+    //         .filter(|(_, loan)| loan.status == status)
+    //         .map(|(_, loan)| loan)
+    //         .collect();
     
-            // Update totals
-            total_pending += loan_statistics.pending_count;
-            total_approved += loan_statistics.approved_this_month + loan_statistics.approved_last_month;
-            total_rejected += loan_statistics.rejected_this_month + loan_statistics.rejected_last_month;
+    //     to_json_binary(&loans)
+    // }
     
-            // Append statistics for this reviewer
-            reviewers_stats.push(loan_statistics);
-        }
-    
-        Ok(AllReviewerStatistics {
-            total_pending,
-            total_approved,
-            total_rejected,
-            reviewers_stats,
+
+    pub fn query_loans(deps: Deps, 
+            filters: LoanDateQueryFilters, // Additional filters for status, creator, etc.
+        ) -> StdResult<Binary> {
+        let mut loans: Vec<Loan> = LOAN_STORE
+        .range(deps.storage, None, None, Order::Ascending) // Fetch loans in ascending order
+        .filter_map(|item| item.ok())                      // Filter out any errors
+        .filter(|(_, loan)| {
+            // Apply date filter if provided
+            let start_date_match = filters.start_date.map_or(true, |start| loan.created_at >= start);
+            let end_date_match = filters.end_date.map_or(true, |end| loan.created_at <= end);
+
+            // Apply id filter if provided
+            let id_match = filters.id.as_ref().map_or(true, |id| loan.id == *id);
+
+            // Apply status filter if provided
+            let status_match = filters.status.as_ref().map_or(true, |status| loan.status == *status);
+
+            // Apply creator filter if provided
+            let creator_match = filters.creator.as_ref().map_or(true, |creator| loan.creator == *creator);
+
+            // Combine all filters
+            start_date_match && end_date_match && status_match && creator_match && id_match
         })
-    }
+        .map(|(_, loan)| loan)
+        .collect();
 
-    pub fn query_templates_for_reviewer(deps: Deps, reviewer: String) -> StdResult<Vec<LoanTemplate>> {
-        let templates: Vec<LoanTemplate> = TEMPLATE_REVIEWERS
-            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .filter_map(|item| {
-                let (template_id, assigned_reviewer_tuple) = item.ok()?;
-                if assigned_reviewer_tuple.reviewer == reviewer {
-                    // Now query USER_TEMPLATES for the specific template
-                    let template = USER_TEMPLATES
-                        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-                        .find_map(|template_item| {
-                            let (_, template) = template_item.ok()?;
-                            if template.id == template_id {
-                                Some(template)
-                            } else {
-                                None
-                            }
-                        });
-                    template
-                } else {
-                    None
-                }
-            })
-            .collect(); // Collect LoanTemplate items into a Vec
+    // Apply pagination: limit and offset
+    let offset = filters.offset.unwrap_or(0) as usize;
+    let limit = filters.limit.unwrap_or(100) as usize;
+    loans = loans.into_iter().skip(offset).take(limit).collect();
+
+    // Serialize to binary
+    to_json_binary(&loans)
+    }
     
-        Ok(templates) // Return the vector of LoanTemplates
-    }
+    pub fn query_loan_statistics(deps: Deps) -> StdResult<Binary> {
+        let mut statistics = LoanStatistics {
+            total_loans: 0,
+            pending_count: 0,
+            returned_count: 0,
+            approved_count: 0,
+            rejected_count: 0,
+            avg_processing_time: None,
+            total_processing_time: None,
+        };
 
-    pub fn query_user_templates(deps: Deps, user_id: String) -> StdResult<Vec<LoanTemplate>> {
-        USER_TEMPLATES
-            .prefix(&user_id)
+        let mut total_processing_time: u64 = 0;
+        let mut processed_loan_count: u64 = 0;
+    
+        LOAN_STORE
             .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-            .map(|item| item.map(|(_, template)| template))
-            .collect()
+            .filter_map(|item| item.ok())
+            .for_each(|(_, loan)| {
+                statistics.total_loans += 1;
+    
+                match loan.status {
+                    LoanStatus::Pending => {
+                        statistics.pending_count += 1;
+                    }
+                    LoanStatus::Returned{ .. } => {
+                        statistics.returned_count += 1;
+                    }
+                    LoanStatus::Approved { .. } => {
+                        statistics.approved_count += 1;
+                    }
+                    LoanStatus::Rejected { .. } => {
+                        statistics.rejected_count += 1;
+                    }
+                    _ => {}
+                }
+
+                // Calculate processing time for loans that have been approved, returned, or rejected
+                if let Some(updated_at) = loan.updated_at {
+                    let processing_time = updated_at.seconds() - loan.created_at.seconds();
+                    total_processing_time += processing_time;
+                    processed_loan_count += 1;
+                }
+            });
+            statistics.avg_processing_time = Some((total_processing_time/processed_loan_count).to_string());
+            statistics.total_processing_time = Some(total_processing_time.to_string());
+        to_json_binary(&statistics)
     }
+    
+
+    pub fn query_templates_for_reviewer(deps: Deps, reviewer: String) -> StdResult<Binary> {
+        let templates: Vec<Template> = TEMPLATE_STORE
+            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+            .filter_map(|item| item.ok())
+            .filter(|(_, template)| template.loan_reviewers.contains(&reviewer))
+            .map(|(_, template)| template)
+            .collect();
+    
+        to_json_binary(&templates)
+    }
+    
+
+    pub fn query_user_templates(deps: Deps, creator: String) -> StdResult<Binary> {
+        let templates: Vec<Template> = TEMPLATE_STORE
+            .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+            .filter_map(|item| item.ok())
+            .filter(|(_, template)| template.loan_creators.contains(&creator))
+            .map(|(_, template)| template)
+            .collect();
+    
+        to_json_binary(&templates)
+    }
+    
+    
 }
