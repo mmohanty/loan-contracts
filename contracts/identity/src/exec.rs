@@ -2,7 +2,7 @@ use cosmwasm_std::{entry_point, DepsMut, Env, MessageInfo, Response, StdResult};
 use exec::{approve_template, create_loan, create_template, review_loan, submit_loan, submit_template};
 
 use crate::msg::ExecuteMsg;
-
+use crate::error::ContractError;
 
 #[entry_point]
 pub fn execute(
@@ -32,7 +32,7 @@ mod exec {
 
     use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 
-    use crate::{models::{Loan, LoanAttribute, LoanStatus, MetaData, ReviewStatus, SubmissionStatus, Template}, states::{LOAN_STORE, TEMPLATE_STORE}};
+    use crate::{error::ContractError, models::{Loan, LoanAttribute, LoanStatus, MetaData, MintMultipleLoansMsg, ReviewStatus, SubmissionStatus, Template}, states::{LOAN_STORE, TEMPLATE_STORE}};
 
     // Create a new template
 pub fn create_template(
@@ -236,4 +236,24 @@ pub fn review_loan(
         .add_attribute("loan_id", loan_id)
         .add_attribute("status", if approve { "approved" } else { "rejected" }))
 }
+// Define a handler to mint multiple loans
+pub fn mint_multiple_loans(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: MintMultipleLoansMsg,
+) -> Result<Response, ContractError> {
+    let mut response = Response::new().add_attribute("action", "mint_multiple_loans");
+
+    for loan_id in msg.loan_ids.iter() {
+        // Call the mint function for each loan ID
+        match mint_loan(deps.branch(), env.clone(), loan_id) {
+            Ok(res) => response = response.add_attributes(res.attributes),
+            Err(err) => return Err(ContractError::Std(err)), // Handle errors if needed
+        }
+    }
+
+    Ok(response)
+}
+
 }

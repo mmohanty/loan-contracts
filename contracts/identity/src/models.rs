@@ -102,3 +102,9 @@ pub struct LoanDateQueryFilters {
     pub limit: Option<u32>,         // Pagination: max number of results
     pub offset: Option<u32>,        // Pagination: starting point for the results
 }
+
+// Define a custom message to accept a list of loan IDs
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MintMultipleLoansMsg {
+    pub loan_ids: Vec<String>, // List of loan IDs to mint
+}
